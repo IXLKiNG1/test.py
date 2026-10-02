@@ -1,0 +1,54 @@
+"use strict";
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const os=require('node:os');
+const store=require('../src/store');
+const media=require('../src/media');
+const groups=require('../src/groups');
+const {due,nextRun,zonedDateToUtc}=require('../src/scheduler');
+const {render,match,scopeOk}=require('../src/interaction');
+const {DeliveryService}=require('../src/delivery');
+const Module=require('node:module');const originalLoad=Module._load;Module._load=function(request,parent,isMain){if(request==='whatsapp-web.js')return{Client:class Client{},LocalAuth:class LocalAuth{},MessageMedia:{fromFilePath(){return {}}}};if(request==='./compat')return{patch(){}};return originalLoad.apply(this,arguments)};const {groupFromMessage,remoteId}=require('../src/whatsapp');Module._load=originalLoad;
+
+assert.equal(groups.isGroupId(' 120363-12@g.us '),true);
+assert.equal(groups.normalizeGid('120363-12@g.us'),'120363-12@g.us');
+assert.equal(groups.extractInviteCode('https://chat.whatsapp.com/abc-123?x=1'),'abc-123');
+assert.equal(render('أهلًا {{sender}} في {{chat}} {{message}}',{sender:'س',chat:'g',message:'m'}).includes('س'),true);
+assert.equal(match({when:{match:'contains',value:'مرحبا'}},'message','أهلًا مرحبا بك',''),true);
+assert.equal(scopeOk('groups','123@g.us'),true);
+assert.equal(scopeOk('private','123@g.us'),false);
+assert.equal(groupFromMessage({id:{remote:'120363-55@g.us'}}),'120363-55@g.us');
+assert.equal(remoteId({remote:'120363-55@g.us'}),'120363-55@g.us');
+const nr=store.normalizeRecipient({name:'Intl',digits:'96890000000',country:'om'});assert.equal(nr.phone,'96890000000');assert.equal(nr.country,'OM');
+
+const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'chatbot-test-'));
+fs.mkdirSync(tmp,{recursive:true});
+assert.equal(media.nextImageName(tmp,'.png'),'img.1.png');
+fs.writeFileSync(path.join(tmp,'img.1.png'),'1');
+fs.writeFileSync(path.join(tmp,'img.3.png'),'3');
+assert.equal(media.nextImageName(tmp,'.jpg'),'img.2.jpg');
+const u1=media.uniqueFileName(tmp,'report','.txt'),u2=media.uniqueFileName(tmp,'report','.txt');assert.notEqual(u1,u2);
+fs.rmSync(tmp,{recursive:true,force:true});
+
+const id='regression-'+Date.now(); const d=store.loadSession(id); d.name='Regression';
+const dir=store.getPaths(d.id).media;
+fs.mkdirSync(dir,{recursive:true});
+fs.writeFileSync(path.join(dir,'img.1.png'),'x');
+d.settings.sendDelayMs=0;d.settings.retryAttempts=1;d.settings.preText='';d.settings.postText='';d.recipients=[{id:'r1',name:'Test',phone:'96890000000',formatted:'+968 9000 0000',enabled:true}];store.saveSession(d);
+const calls=[];
+const fake={resolveChatId:async()=> '96890000000@c.us',sendText:async()=>{calls.push('text');return {}} ,sendMedia:async()=>{calls.push('media');return {}}};
+const delivery=new DeliveryService({store,whatsapp:fake,log:()=>{}});
+const sForTargets=store.loadSession(d.id);sForTargets.groups=[{id:'g1',name:'Group',gid:'120363-1@g.us',enabled:true}];store.saveSession(sForTargets);const allTargets=delivery.targets(store.loadSession(d.id),true,null);assert.deepEqual(allTargets.map(x=>x.targetId),['r1','g1']);assert.deepEqual(delivery.targets(store.loadSession(d.id),true,['g:g1']).map(x=>x.targetId),['g1']);
+(async()=>{
+ const r=await delivery.sendNow(d.id,{targetKeys:['r:r1'],mediaId:'img.1.png',preText:'hello',repeatGuard:false});
+ assert.equal(r.sent.length,1);assert.deepEqual(calls,['text','media']);
+ const r2=await delivery.sendNow(d.id,{targetKeys:['r:r1'],mediaId:'img.1.png',preText:'hello',repeatGuard:true});
+ assert.equal(r2.sent.length,0);assert.equal(r2.failed.length,1);
+ const s=store.loadSession(d.id);assert.equal(s.stats.sentMessages,1);assert.equal(s.stats.sentImages,1);
+ const future=zonedDateToUtc('2099-01-01','17:30','Asia/Muscat');assert.ok(future&&future.toISOString().startsWith('2099-01-01T'));
+ const sched={...s,settings:{...s.settings,scheduleEnabled:true,scheduleMode:'once',scheduleDate:'2099-01-01',scheduleTime:'17:30'}};assert.equal(nextRun(sched,new Date('2098-12-31T00:00:00Z')).slice(0,10),future.toISOString().slice(0,10));
+ const dueState={...s,settings:{...s.settings,scheduleEnabled:true,scheduleMode:'weekly',scheduleDay:5,scheduleTime:'17:30',timezone:'Asia/Muscat'},scheduleState:{lastRunKey:''}};assert.equal(typeof due(new Date('2026-10-02T13:31:00Z'),dueState).due,'boolean');
+ fs.rmSync(store.getPaths(d.id).dir,{recursive:true,force:true});
+ console.log('regression: ok');
+})().catch(e=>{console.error(e);process.exitCode=1});

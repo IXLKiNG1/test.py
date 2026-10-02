@@ -1,0 +1,21 @@
+{
+  "name": "chat-bot-whatsapp-local",
+  "version": "6.5.2",
+  "private": true,
+  "description": "chat BOT classic original-style local WhatsApp automation with simple UI, reliable delivery, group assistant, automatic interaction and dynamic backgrounds.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "verify": "node --check server.js && node --check public/app.js && node test/smoke.js && node test/regression.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "express": "5.2.1",
+    "multer": "2.4.0",
+    "qrcode": "1.5.4",
+    "whatsapp-web.js": "1.34.6",
+    "libphonenumber-js": "1.13.13"
+  }
+}

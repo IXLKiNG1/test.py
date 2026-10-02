@@ -1,0 +1,12 @@
+node_modules/
+data/sessions/*/auth/
+data/_temp/
+data/system.log
+data/sessions/*/session.json
+data/sessions/*/runtime.json
+.DS_Store
+*.log
+.env
+
+data/active-session
+data/sessions/*/activity.log

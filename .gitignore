@@ -1,0 +1,10 @@
+node_modules/
+.wwebjs_auth/
+.cache/
+__pycache__/
+*.pyc
+data/_temp/
+data/sessions/*/auth/
+data/sessions/*/_uploads/
+data/sessions/*/logs/
+data/sessions/*/backups/

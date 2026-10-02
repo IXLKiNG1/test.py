@@ -1,0 +1,23 @@
+{
+  "name": "chat-bot-whatsapp-local",
+  "version": "6.0.0",
+  "private": true,
+  "description": "Local WhatsApp automation with isolated sessions, deterministic interactions, strong delivery preflight, group workflows, and per-background visual controls, round-safe delivery, selected interaction scopes, and strong local execution safeguards.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "verify": "node test/static.js && node test/core.js && node test/delivery.js && node test/ui.js && node test/phones.js && node test/patch.js && node test/phase2.js && node test/runtime.js",
+    "patch-whatsapp": "node scripts/patch-whatsapp.js",
+    "postinstall": "node scripts/patch-whatsapp.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "express": "5.2.1",
+    "multer": "2.4.0",
+    "qrcode": "1.5.4",
+    "whatsapp-web.js": "1.34.6",
+    "libphonenumber-js": "1.13.13"
+  }
+}
